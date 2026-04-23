@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xcodebuild -version)",
+      "Bash(open *)",
+      "Bash(gunzip -c \"/Users/matthiasbarann/.claude/projects/-Users-matthiasbarann-claude-speisewagen/98974ca7-8ad1-4e01-ab40-7b10f37c8413/tool-results/webfetch-1776886581056-pymws1.bin\")",
+      "Bash(tar -xO speisewagen/project/Speisewagen.html)"
+    ]
+  }
+}
