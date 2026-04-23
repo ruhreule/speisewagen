@@ -10,6 +10,7 @@ final class MealStore: ObservableObject {
 
     let container: NSPersistentCloudKitContainer
     private var privateStore: NSPersistentStore?
+    private var sharedStore: NSPersistentStore?
 
     private init() {
         container = NSPersistentCloudKitContainer(name: "Speisewagen",
@@ -49,20 +50,25 @@ final class MealStore: ObservableObject {
     // MARK: - Setup
 
     private func setup() {
-        let storeURL = NSPersistentContainer.defaultDirectoryURL()
-            .appendingPathComponent("speisewagen.sqlite")
+        let baseURL = NSPersistentContainer.defaultDirectoryURL()
 
-        let desc = NSPersistentStoreDescription(url: storeURL)
-        desc.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
-        desc.setOption(true as NSNumber,
-                       forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+        let privateDesc = NSPersistentStoreDescription(url: baseURL.appendingPathComponent("speisewagen.sqlite"))
+        privateDesc.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
+        privateDesc.setOption(true as NSNumber,
+                              forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+        let privateOpts = NSPersistentCloudKitContainerOptions(containerIdentifier: "iCloud.eu.barann.speisewagen")
+        privateOpts.databaseScope = .private
+        privateDesc.cloudKitContainerOptions = privateOpts
 
-        let ckOpts = NSPersistentCloudKitContainerOptions(
-            containerIdentifier: "iCloud.eu.barann.speisewagen")
-        ckOpts.databaseScope = .private
-        desc.cloudKitContainerOptions = ckOpts
+        let sharedDesc = NSPersistentStoreDescription(url: baseURL.appendingPathComponent("speisewagen-shared.sqlite"))
+        sharedDesc.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
+        sharedDesc.setOption(true as NSNumber,
+                             forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+        let sharedOpts = NSPersistentCloudKitContainerOptions(containerIdentifier: "iCloud.eu.barann.speisewagen")
+        sharedOpts.databaseScope = .shared
+        sharedDesc.cloudKitContainerOptions = sharedOpts
 
-        container.persistentStoreDescriptions = [desc]
+        container.persistentStoreDescriptions = [privateDesc, sharedDesc]
         container.viewContext.automaticallyMergesChangesFromParent = true
         container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
 
@@ -72,8 +78,12 @@ final class MealStore: ObservableObject {
                 if let error {
                     print("⚠️ Store load error: \(error)")
                 } else if let url = storeDesc.url {
-                    self.privateStore = self.container
-                        .persistentStoreCoordinator.persistentStore(for: url)
+                    let store = self.container.persistentStoreCoordinator.persistentStore(for: url)
+                    if storeDesc.cloudKitContainerOptions?.databaseScope == .shared {
+                        self.sharedStore = store
+                    } else {
+                        self.privateStore = store
+                    }
                 }
                 self.fetch()
             }
@@ -96,8 +106,10 @@ final class MealStore: ObservableObject {
     }
 
     private func refreshShareStatus() {
-        guard let store = privateStore else { return }
-        isShared = ((try? container.fetchShares(in: store)) ?? []).isEmpty == false
+        var shares: [CKShare] = []
+        if let store = privateStore { shares += (try? container.fetchShares(in: store)) ?? [] }
+        if let store = sharedStore  { shares += (try? container.fetchShares(in: store)) ?? [] }
+        isShared = !shares.isEmpty
     }
 
     // MARK: - CRUD
@@ -163,6 +175,13 @@ final class MealStore: ObservableObject {
     }
 
     func acceptShare(metadata: CKShare.Metadata) {
-        print("Share invitation received – shared-database support coming in a future update.")
+        guard let sharedStore else {
+            print("⚠️ acceptShare called before shared store was ready")
+            return
+        }
+        container.acceptShareInvitations(from: [metadata], into: sharedStore) { _, error in
+            if let error { print("⚠️ acceptShare error: \(error)") }
+            DispatchQueue.main.async { self.fetch() }
+        }
     }
 }

@@ -1,4 +1,5 @@
 import SwiftUI
+import CloudKit
 
 struct ContentView: View {
     @EnvironmentObject private var store: MealStore
@@ -6,6 +7,9 @@ struct ContentView: View {
     @State private var weekOffset = 0
     @State private var editingDate: Date? = nil
     @State private var editingText: String = ""
+    @State private var isPreparingShare = false
+    @State private var activeShare: CKShare? = nil
+    @State private var activeContainer: CKContainer? = nil
     @State private var showShareSheet = false
     @State private var sharingError: String? = nil
 
@@ -19,8 +23,11 @@ struct ContentView: View {
         }
         .background(Color.swBg)
         .sheet(isPresented: $showShareSheet) {
-            CloudSharingView(onDismiss: { showShareSheet = false })
-                .environmentObject(store)
+            if let share = activeShare, let ckContainer = activeContainer {
+                CloudSharingView(share: share, container: ckContainer) {
+                    showShareSheet = false
+                }
+            }
         }
         .alert("Hinweis", isPresented: Binding(
             get: { sharingError != nil },
@@ -87,22 +94,44 @@ struct ContentView: View {
 
     private var shareButton: some View {
         Button {
-            if allMeals.isEmpty {
-                sharingError = "Füge zuerst mindestens ein Gericht hinzu."
-            } else {
+            initiateSharing()
+        } label: {
+            Group {
+                if isPreparingShare {
+                    ProgressView()
+                        .tint(Color.swMuted)
+                } else {
+                    Image(systemName: store.isShared ? "person.2.fill" : "person.badge.plus")
+                        .font(.system(size: 17))
+                        .foregroundStyle(store.isShared ? Color.swAccent : Color.swMuted)
+                }
+            }
+            .frame(width: 34, height: 34)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(store.isShared ? Color.swAccent.opacity(0.3) : Color.swBorder, lineWidth: 1)
+            )
+        }
+        .disabled(isPreparingShare)
+    }
+
+    private func initiateSharing() {
+        guard !allMeals.isEmpty else {
+            sharingError = "Füge zuerst mindestens ein Gericht hinzu."
+            return
+        }
+        isPreparingShare = true
+        store.prepareShare { share, container, error in
+            isPreparingShare = false
+            if let error {
+                sharingError = error.localizedDescription
+            } else if let share, let container {
+                activeShare = share
+                activeContainer = container
                 showShareSheet = true
             }
-        } label: {
-            Image(systemName: store.isShared ? "person.2.fill" : "person.badge.plus")
-                .font(.system(size: 17))
-                .foregroundStyle(store.isShared ? Color.swAccent : Color.swMuted)
-                .frame(width: 34, height: 34)
-                .background(Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(store.isShared ? Color.swAccent.opacity(0.3) : Color.swBorder, lineWidth: 1)
-                )
         }
     }
 
