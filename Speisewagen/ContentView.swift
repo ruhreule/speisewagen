@@ -309,6 +309,10 @@ struct ContentView: View {
     }
 
     private func startEditing(date: Date) {
+        if let prev = editingDate, prev != date {
+            let trimmed = editingText.trimmingCharacters(in: .whitespaces)
+            if !trimmed.isEmpty { store.save(name: trimmed, for: prev) }
+        }
         editingText = meal(for: date)?.name ?? ""
         editingDate = date
     }
