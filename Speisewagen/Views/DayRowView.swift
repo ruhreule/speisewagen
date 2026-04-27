@@ -14,11 +14,6 @@ struct DayRowView: View {
 
     private var isToday: Bool { Calendar.current.isDateInToday(date) }
 
-    private var isWeekend: Bool {
-        let w = Calendar.current.component(.weekday, from: date)
-        return w == 1 || w == 7
-    }
-
     private var dayAbbrev: String {
         let fmt = DateFormatter()
         fmt.locale = Locale(identifier: "de_DE")
@@ -89,7 +84,7 @@ struct DayRowView: View {
                                 .font(.system(size: 15))
                                 .foregroundStyle(Color.swText)
                         } else {
-                            Text(isWeekend ? "Freier Tag" : "Noch nichts geplant")
+                            Text("Noch nichts geplant")
                                 .font(Font.system(size: 15, weight: .light).italic())
                                 .foregroundStyle(Color.swMuted.opacity(0.7))
                         }
