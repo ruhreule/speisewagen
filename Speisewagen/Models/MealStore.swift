@@ -151,11 +151,17 @@ final class MealStore: ObservableObject {
 
     func prepareShare(completion: @escaping (CKShare?, CKContainer?, Error?) -> Void) {
         guard let store = privateStore else { completion(nil, nil, nil); return }
+        let ckContainer = CKContainer(identifier: "iCloud.eu.barann.speisewagen")
 
         if let existing = (try? container.fetchShares(in: store))?.first {
-            completion(existing,
-                       CKContainer(identifier: "iCloud.eu.barann.speisewagen"),
-                       nil)
+            // Clear any previously set minimumAppVersion so TestFlight recipients aren't blocked.
+            existing["minimumAppVersion"] = nil
+            let op = CKModifyRecordsOperation(recordsToSave: [existing])
+            op.savePolicy = .changedKeys
+            op.modifyRecordsResultBlock = { _ in
+                DispatchQueue.main.async { completion(existing, ckContainer, nil) }
+            }
+            ckContainer.privateCloudDatabase.add(op)
             return
         }
 
