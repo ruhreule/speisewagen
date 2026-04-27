@@ -16,6 +16,8 @@
 		AA0000000000000000000021 /* SpeisewagenLogo.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000020 /* SpeisewagenLogo.swift */; };
 		AA0000000000000000000023 /* MealStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000022 /* MealStore.swift */; };
 		AA0000000000000000000027 /* CloudSharingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000026 /* CloudSharingView.swift */; };
+		AA000000000000000000002D /* SideMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000002B /* SideMenuView.swift */; };
+		AA000000000000000000002E /* ImpressumView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000002C /* ImpressumView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,6 +31,8 @@
 		AA0000000000000000000020 /* SpeisewagenLogo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeisewagenLogo.swift; sourceTree = "<group>"; };
 		AA0000000000000000000022 /* MealStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealStore.swift; sourceTree = "<group>"; };
 		AA0000000000000000000026 /* CloudSharingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSharingView.swift; sourceTree = "<group>"; };
+		AA000000000000000000002B /* SideMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideMenuView.swift; sourceTree = "<group>"; };
+		AA000000000000000000002C /* ImpressumView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImpressumView.swift; sourceTree = "<group>"; };
 		AA0000000000000000000028 /* Speisewagen.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Speisewagen.entitlements; sourceTree = "<group>"; };
 		AA000000000000000000002A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -90,6 +94,8 @@
 				AA0000000000000000000011 /* DayRowView.swift */,
 				AA0000000000000000000020 /* SpeisewagenLogo.swift */,
 				AA0000000000000000000026 /* CloudSharingView.swift */,
+				AA000000000000000000002B /* SideMenuView.swift */,
+				AA000000000000000000002C /* ImpressumView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -171,6 +177,8 @@
 				AA0000000000000000000021 /* SpeisewagenLogo.swift in Sources */,
 				AA0000000000000000000023 /* MealStore.swift in Sources */,
 				AA0000000000000000000027 /* CloudSharingView.swift in Sources */,
+				AA000000000000000000002D /* SideMenuView.swift in Sources */,
+				AA000000000000000000002E /* ImpressumView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

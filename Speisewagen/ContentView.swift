@@ -12,31 +12,46 @@ struct ContentView: View {
     @State private var activeContainer: CKContainer? = nil
     @State private var showShareSheet = false
     @State private var sharingError: String? = nil
+    @State private var showSideMenu = false
 
     private var allMeals: [MealEntry] { store.meals }
 
     var body: some View {
-        VStack(spacing: 0) {
-            headerView
-            mealList
-            footerView
-        }
-        .background(Color.swBg)
-        .sheet(isPresented: $showShareSheet) {
-            if let share = activeShare, let ckContainer = activeContainer {
-                CloudSharingView(share: share, container: ckContainer) {
-                    showShareSheet = false
+        ZStack(alignment: .trailing) {
+            VStack(spacing: 0) {
+                headerView
+                mealList
+                footerView
+            }
+            .background(Color.swBg)
+            .sheet(isPresented: $showShareSheet) {
+                if let share = activeShare, let ckContainer = activeContainer {
+                    CloudSharingView(share: share, container: ckContainer) {
+                        showShareSheet = false
+                    }
                 }
             }
+            .alert("Hinweis", isPresented: Binding(
+                get: { sharingError != nil },
+                set: { if !$0 { sharingError = nil } }
+            )) {
+                Button("OK") { sharingError = nil }
+            } message: {
+                Text(sharingError ?? "")
+            }
+
+            if showSideMenu {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .onTapGesture { showSideMenu = false }
+
+                SideMenuView(onClose: { showSideMenu = false })
+                    .frame(width: UIScreen.main.bounds.width * 0.78)
+                    .ignoresSafeArea()
+                    .transition(.move(edge: .trailing))
+            }
         }
-        .alert("Hinweis", isPresented: Binding(
-            get: { sharingError != nil },
-            set: { if !$0 { sharingError = nil } }
-        )) {
-            Button("OK") { sharingError = nil }
-        } message: {
-            Text(sharingError ?? "")
-        }
+        .animation(.easeInOut(duration: 0.25), value: showSideMenu)
     }
 
     // MARK: – Header
@@ -75,20 +90,7 @@ struct ContentView: View {
 
             shareButton
 
-            VStack(alignment: .center, spacing: 2) {
-                HStack(alignment: .firstTextBaseline, spacing: 1) {
-                    Text("\(filledCount)")
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(filledCount == 7 ? Color.swAccent : Color.swText)
-                    Text("/7")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.swMuted)
-                }
-                Text("Gerichte")
-                    .font(.system(size: 10))
-                    .kerning(0.5)
-                    .foregroundStyle(Color.swMuted)
-            }
+            menuButton
         }
     }
 
@@ -115,6 +117,23 @@ struct ContentView: View {
             )
         }
         .disabled(isPreparingShare)
+    }
+
+    private var menuButton: some View {
+        Button {
+            showSideMenu = true
+        } label: {
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 17))
+                .foregroundStyle(Color.swMuted)
+                .frame(width: 34, height: 34)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.swBorder, lineWidth: 1)
+                )
+        }
     }
 
     private func initiateSharing() {
