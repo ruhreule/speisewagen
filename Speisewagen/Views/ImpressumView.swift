@@ -27,8 +27,8 @@ struct ImpressumView: View {
                     Text("Matthias Barann")
                         .font(.system(size: 15))
                         .foregroundStyle(Color.swText)
-                    Link("matthias.mk@mac.com",
-                         destination: URL(string: "mailto:matthias.mk@mac.com")!)
+                    Link("dev@barann.eu",
+                         destination: URL(string: "mailto:dev@barann.eu")!)
                         .font(.system(size: 15))
                         .foregroundStyle(Color.swAccent)
                 }
