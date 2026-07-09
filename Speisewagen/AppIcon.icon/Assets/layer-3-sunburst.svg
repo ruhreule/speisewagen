@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="fade" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff" stop-opacity="1"></stop>
+      <stop offset="48%" stop-color="#fff" stop-opacity="1"></stop>
+      <stop offset="72%" stop-color="#fff" stop-opacity="0"></stop>
+    </radialGradient>
+    <mask id="m"><rect width="1024" height="1024" fill="url(#fade)"></rect></mask>
+  </defs>
+  <g fill="#e6c87a" fill-opacity="0.22" mask="url(#m)">
+    <path d="M512 512 L811.45 493.89 L811.45 530.11 Z"></path><path d="M512 512 L807.09 566.08 L798.42 601.25 Z"></path><path d="M512 512 L785.57 635.12 L768.73 667.20 Z"></path><path d="M512 512 L748.16 697.02 L724.13 724.13 Z"></path><path d="M512 512 L697.02 748.16 L667.20 768.73 Z"></path><path d="M512 512 L635.12 785.57 L601.25 798.42 Z"></path><path d="M512 512 L566.08 807.09 L530.11 811.45 Z"></path><path d="M512 512 L493.89 811.45 L457.92 807.09 Z"></path><path d="M512 512 L422.75 798.42 L388.88 785.57 Z"></path><path d="M512 512 L356.80 768.73 L326.98 748.16 Z"></path><path d="M512 512 L299.87 724.13 L275.84 697.02 Z"></path><path d="M512 512 L255.27 667.20 L238.43 635.12 Z"></path><path d="M512 512 L225.58 601.25 L216.91 566.08 Z"></path><path d="M512 512 L212.55 530.11 L212.55 493.89 Z"></path><path d="M512 512 L216.91 457.92 L225.58 422.75 Z"></path><path d="M512 512 L238.43 388.88 L255.27 356.80 Z"></path><path d="M512 512 L275.84 326.98 L299.87 299.87 Z"></path><path d="M512 512 L326.98 275.84 L356.80 255.27 Z"></path><path d="M512 512 L388.88 238.43 L422.75 225.58 Z"></path><path d="M512 512 L457.92 216.91 L493.89 212.55 Z"></path><path d="M512 512 L530.11 212.55 L566.08 216.91 Z"></path><path d="M512 512 L601.25 225.58 L635.12 238.43 Z"></path><path d="M512 512 L667.20 255.27 L697.02 275.84 Z"></path><path d="M512 512 L724.13 299.87 L748.16 326.98 Z"></path><path d="M512 512 L768.73 356.80 L785.57 388.88 Z"></path><path d="M512 512 L798.42 422.75 L807.09 457.92 Z"></path>
+  </g>
+</svg>

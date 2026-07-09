@@ -1,54 +1,73 @@
 import SwiftUI
 import CloudKit
 
+/// Haupt-View der App. Zeigt den wochenweisen Speiseplan an und koordiniert
+/// alle Nutzerinteraktionen: Bearbeiten von Mahlzeiten, Wochennavigation,
+/// iCloud-Sharing und das Seitenmenü.
 struct ContentView: View {
     @EnvironmentObject private var store: MealStore
 
+    /// Woche relativ zur aktuellen: 0 = diese Woche, -1 = letzte, +1 = nächste.
     @State private var weekOffset = 0
+    /// Das Datum des gerade im Bearbeitungsmodus befindlichen Tags (nil = kein Tag aktiv).
     @State private var editingDate: Date? = nil
+    /// Der Textinhalt des aktiven Eingabefeldes; liegt in ContentView, damit
+    /// Auto-Save beim Zeilenwechsel möglich ist.
     @State private var editingText: String = ""
+
+    // --- Sharing-Zustand ---
     @State private var isPreparingShare = false
     @State private var activeShare: CKShare? = nil
     @State private var activeContainer: CKContainer? = nil
     @State private var showShareSheet = false
     @State private var sharingError: String? = nil
+
+    /// Steuert die Sichtbarkeit des Seitenmenüs.
     @State private var showSideMenu = false
 
+    /// Kurzform für `store.meals`; verhindert direkte Referenzen auf den Store in Views.
     private var allMeals: [MealEntry] { store.meals }
 
     var body: some View {
-        ZStack(alignment: .trailing) {
-            VStack(spacing: 0) {
-                headerView
-                mealList
-                footerView
-            }
-            .background(Color.swBg)
-            .sheet(isPresented: $showShareSheet) {
-                if let share = activeShare, let ckContainer = activeContainer {
-                    CloudSharingView(share: share, container: ckContainer) {
-                        showShareSheet = false
+        // GeometryReader als äußerster Container, damit die Breite des Seitenmenüs
+        // relativ zur aktuellen Screen-Größe berechnet wird (nicht UIScreen.main.bounds,
+        // das auf iPads mit Split View falsche Werte liefern kann).
+        GeometryReader { geo in
+            ZStack(alignment: .trailing) {
+                VStack(spacing: 0) {
+                    headerView
+                    mealList
+                    footerView
+                }
+                .background(Color.swBg)
+                .sheet(isPresented: $showShareSheet) {
+                    if let share = activeShare, let ckContainer = activeContainer {
+                        CloudSharingView(share: share, container: ckContainer) {
+                            showShareSheet = false
+                        }
                     }
                 }
-            }
-            .alert("Hinweis", isPresented: Binding(
-                get: { sharingError != nil },
-                set: { if !$0 { sharingError = nil } }
-            )) {
-                Button("OK") { sharingError = nil }
-            } message: {
-                Text(sharingError ?? "")
-            }
+                .alert("Hinweis", isPresented: Binding(
+                    get: { sharingError != nil },
+                    set: { if !$0 { sharingError = nil } }
+                )) {
+                    Button("OK") { sharingError = nil }
+                } message: {
+                    Text(sharingError ?? "")
+                }
 
-            if showSideMenu {
-                Color.black.opacity(0.3)
-                    .ignoresSafeArea()
-                    .onTapGesture { showSideMenu = false }
+                // Seitenmenü: Dimm-Overlay schließt das Menü per Tap,
+                // das eigentliche Menü gleitet von rechts herein.
+                if showSideMenu {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                        .onTapGesture { showSideMenu = false }
 
-                SideMenuView(onClose: { showSideMenu = false })
-                    .frame(width: UIScreen.main.bounds.width * 0.78)
-                    .ignoresSafeArea()
-                    .transition(.move(edge: .trailing))
+                    SideMenuView(onClose: { showSideMenu = false })
+                        .frame(width: geo.size.width * 0.78)
+                        .ignoresSafeArea()
+                        .transition(.move(edge: .trailing))
+                }
             }
         }
         .animation(.easeInOut(duration: 0.25), value: showSideMenu)
@@ -64,8 +83,10 @@ struct ContentView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
+        // Weißer Hintergrund wird durch die Status-Bar-Höhe nach oben verlängert.
         .background { Color.white.ignoresSafeArea(edges: .top) }
         .overlay(alignment: .bottom) {
+            // Trennlinie zwischen Header und Liste
             Rectangle().fill(Color.swBorder).frame(height: 0.5)
         }
     }
@@ -89,11 +110,12 @@ struct ContentView: View {
             Spacer()
 
             shareButton
-
             menuButton
         }
     }
 
+    /// Share-Button: zeigt während der Vorbereitung einen Ladeindikator,
+    /// danach das passende Icon je nach Share-Status.
     private var shareButton: some View {
         Button {
             initiateSharing()
@@ -136,6 +158,9 @@ struct ContentView: View {
         }
     }
 
+    /// Startet den Share-Vorbereitungsprozess.
+    /// Die Prüfung auf leere Mahlzeitenliste erfolgt lokal (schnell, kein Netzwerk),
+    /// bevor der teurere iCloud-Aufruf in `store.prepareShare` stattfindet.
     private func initiateSharing() {
         guard !allMeals.isEmpty else {
             sharingError = "Füge zuerst mindestens ein Gericht hinzu."
@@ -154,6 +179,8 @@ struct ContentView: View {
         }
     }
 
+    /// Fortschrittsbalken: jeder der 7 Balken entspricht einem Wochentag.
+    /// Ausgefüllte Balken (Mahlzeit vorhanden) werden in der Akzentfarbe gezeigt.
     private var progressBarView: some View {
         HStack(spacing: 3) {
             ForEach(0..<7, id: \.self) { i in
@@ -170,6 +197,7 @@ struct ContentView: View {
             navButton(direction: -1)
             Spacer()
             HStack(spacing: 6) {
+                // Kleiner Punkt signalisiert, dass die aktuelle Woche angezeigt wird.
                 if weekOffset == 0 {
                     Circle()
                         .fill(Color.swAccent)
@@ -184,6 +212,7 @@ struct ContentView: View {
         }
     }
 
+    /// Erstellt einen Navigations-Button für Vorwärts/Rückwärts-Navigation durch Wochen.
     private func navButton(direction: Int) -> some View {
         Button {
             weekOffset += direction
@@ -201,10 +230,11 @@ struct ContentView: View {
         }
     }
 
-    // MARK: – List
+    // MARK: – Liste
 
     private var mealList: some View {
         List {
+            // Abschnittsüberschrift
             Text("Diese Woche")
                 .font(.system(size: 11, weight: .semibold))
                 .kerning(1.2)
@@ -218,7 +248,10 @@ struct ContentView: View {
                 DayRowView(
                     date: date,
                     mealName: meal(for: date)?.name,
-                    isEditing: editingDate == date,
+                    // `editingDate.map` liefert false, wenn editingDate nil ist,
+                    // ansonsten wird per Kalender-Vergleich geprüft (nicht == auf Date,
+                    // um Uhrzeit-Abweichungen zu vermeiden).
+                    isEditing: editingDate.map { Calendar.current.isDate($0, inSameDayAs: date) } ?? false,
                     editingText: $editingText,
                     onStartEditing: { startEditing(date: date) },
                     onSave: { save(for: date) },
@@ -226,17 +259,22 @@ struct ContentView: View {
                     onDelete: { delete(for: date) }
                 )
 
+                // Autocomplete-Vorschläge werden als eigene Listenzeilen direkt
+                // unterhalb der aktiven Zeile eingefügt. So passt sich das
+                // Scrollverhalten nahtlos in die bestehende List-Struktur ein.
                 if editingDate == date && !suggestions.isEmpty {
                     ForEach(suggestions, id: \.self) { suggestion in
                         Button {
                             editingText = suggestion
                         } label: {
                             HStack {
+                                // Einrückung entspricht der Breite der Datumsspalte + Trennlinie
                                 Spacer().frame(width: 54)
                                 Text(suggestion)
                                     .font(.system(size: 14))
                                     .foregroundStyle(Color.swText)
                                 Spacer()
+                                // Visueller Hinweis: Vorschlag per Return-Taste übernehmen
                                 Text("↩")
                                     .font(.system(size: 12))
                                     .foregroundStyle(Color.swAccent.opacity(0.7))
@@ -251,6 +289,8 @@ struct ContentView: View {
                 }
             }
 
+            // Onboarding-Hinweis auf Autocomplete – erscheint nur, wenn bereits
+            // mindestens ein Gericht gespeichert wurde.
             if !store.allNames.isEmpty {
                 HStack(spacing: 8) {
                     Text("💡")
@@ -290,12 +330,17 @@ struct ContentView: View {
             }
     }
 
-    // MARK: – Helpers
+    // MARK: – Hilfswerte
 
+    /// Anzahl der Wochentage, für die bereits eine Mahlzeit eingetragen ist.
+    /// Steuert den Fortschrittsbalken im Header.
     private var filledCount: Int {
         weekDates.filter { meal(for: $0) != nil }.count
     }
 
+    /// Filtert `store.allNames` nach dem aktuellen Eingabetext.
+    /// Exakte Treffer werden ausgeschlossen – wer genau das Gericht tippt, braucht
+    /// keinen Vorschlag mehr.
     private var suggestions: [String] {
         let trimmed = editingText.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return [] }
@@ -305,6 +350,7 @@ struct ContentView: View {
         }
     }
 
+    /// Die 7 Tagesdaten (Montag–Sonntag) der aktuell angezeigten Woche.
     private var weekDates: [Date] {
         let monday = mondayOfWeek(offset: weekOffset)
         return (0..<7).compactMap {
@@ -312,21 +358,34 @@ struct ContentView: View {
         }
     }
 
+    // Statische Formatter vermeiden wiederholte Allokation bei jedem Render-Durchlauf.
+    private static let weekFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "de_DE")
+        f.dateFormat = "dd. MMM"
+        return f
+    }()
+
+    private static let weekFmtYear: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "de_DE")
+        f.dateFormat = "dd. MMM yyyy"
+        return f
+    }()
+
+    /// Anzeige-Titel der Wochennavigation, z. B. „30. Jun – 06. Jul 2025".
     private var weekRangeTitle: String {
         guard let monday = weekDates.first, let lastDay = weekDates.last else { return "" }
-        let fmt = DateFormatter()
-        fmt.locale = Locale(identifier: "de_DE")
-        fmt.dateFormat = "dd. MMM"
-        let fmtYear = DateFormatter()
-        fmtYear.locale = Locale(identifier: "de_DE")
-        fmtYear.dateFormat = "dd. MMM yyyy"
-        return "\(fmt.string(from: monday)) – \(fmtYear.string(from: lastDay))"
+        return "\(Self.weekFmt.string(from: monday)) – \(Self.weekFmtYear.string(from: lastDay))"
     }
 
     private func meal(for date: Date) -> MealEntry? {
         store.meal(for: date)
     }
 
+    /// Wechselt in den Bearbeitungsmodus für `date`.
+    /// Falls vorher ein anderer Tag bearbeitet wurde, wird dessen Inhalt
+    /// automatisch gespeichert (Auto-Save beim Zeilenwechsel).
     private func startEditing(date: Date) {
         if let prev = editingDate, prev != date {
             let trimmed = editingText.trimmingCharacters(in: .whitespaces)
@@ -336,6 +395,8 @@ struct ContentView: View {
         editingDate = date
     }
 
+    /// Speichert den aktuellen Eingabetext für `date` und beendet die Bearbeitung.
+    /// Leere Eingaben werden ignoriert (kein leerer String wird gespeichert).
     private func save(for date: Date) {
         let trimmed = editingText.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else {
@@ -348,14 +409,29 @@ struct ContentView: View {
 
     private func delete(for date: Date) {
         store.delete(for: date)
+        // Editier-Status zurücksetzen, falls der gerade bearbeitete Tag gelöscht wird.
         if editingDate == date { editingDate = nil }
     }
 
+    /// Berechnet den Montag der Woche mit dem gegebenen Offset (0 = aktuelle Woche).
+    ///
+    /// Verwendet einen Calendar mit `firstWeekday = 2` (Montag), um auch in Regionen,
+    /// wo Sonntag als erster Wochentag gilt (z.B. USA), korrekt zu rechnen.
+    /// Der statische Calendar wird gecacht, damit er nicht bei jedem Render-Aufruf
+    /// neu aufgebaut werden muss.
     private func mondayOfWeek(offset: Int) -> Date {
-        var cal = Calendar.current
-        cal.firstWeekday = 2
-        let comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date())
-        let monday = cal.date(from: comps)!
-        return cal.date(byAdding: .weekOfYear, value: offset, to: monday)!
+        // `yearForWeekOfYear` ist entscheidend für korrekte Kalenderwochen-Arithmetik
+        // am Jahreswechsel (z. B. 1. Januar kann KW 52 des Vorjahres sein).
+        let comps = Self.weekCalendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date())
+        let monday = Self.weekCalendar.date(from: comps)!
+        return Self.weekCalendar.date(byAdding: .weekOfYear, value: offset, to: monday)!
     }
+
+    /// Gecachter Calendar mit Montag als erstem Wochentag.
+    /// `static` verhindert, dass bei jedem `weekDates`-Aufruf ein neues Struct erstellt wird.
+    private static let weekCalendar: Calendar = {
+        var cal = Calendar.current
+        cal.firstWeekday = 2  // ISO: Montag
+        return cal
+    }()
 }
