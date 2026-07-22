@@ -68,6 +68,12 @@ struct TipJarView: View {
                         .foregroundStyle(.red.opacity(0.8))
                 }
 
+                // Kaufhistorie
+                if !tipStore.tipHistory.isEmpty {
+                    TipHistorySection(tipStore: tipStore)
+                        .padding(.horizontal, 16)
+                }
+
                 Spacer(minLength: 32)
             }
         }
@@ -86,7 +92,7 @@ struct TipJarView: View {
             if showThankYou {
                 ThankYouOverlay {
                     withAnimation { showThankYou = false }
-                    tipStore.state = .idle
+                    tipStore.resetState()
                 }
             }
         }
@@ -111,6 +117,7 @@ private struct TipButton: View {
     private var icon: String {
         let price = product.price
         if price < 3 { return "☕️" }
+        if price < 5 { return "🍺" }
         if price < 7 { return "🍕" }
         return "🎉"
     }
@@ -149,6 +156,63 @@ private struct TipButton: View {
         }
         .buttonStyle(.plain)
         .disabled(isPurchasing)
+    }
+}
+
+// MARK: - Kaufhistorie
+
+private struct TipHistorySection: View {
+    let tipStore: TipStore
+
+    private static let dateFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .long
+        f.timeStyle = .none
+        return f
+    }()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("DEINE UNTERSTÜTZUNG")
+                .font(.system(size: 11, weight: .semibold))
+                .kerning(1.2)
+                .foregroundStyle(Color.swMuted)
+
+            VStack(spacing: 0) {
+                ForEach(tipStore.tipHistory) { record in
+                    HStack(spacing: 12) {
+                        Text("🙏")
+                            .font(.system(size: 22))
+                            .frame(width: 36)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(tipStore.displayName(for: record.productID))
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(Color.swText)
+                            Text(Self.dateFmt.string(from: record.date))
+                                .font(.system(size: 12))
+                                .foregroundStyle(Color.swMuted)
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+
+                    if record.id != tipStore.tipHistory.last?.id {
+                        Divider().padding(.leading, 62)
+                    }
+                }
+            }
+            .background(Color.swSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.swBorder, lineWidth: 1))
+
+            Text("Vielen Dank für deine Unterstützung! ❤️")
+                .font(.system(size: 13))
+                .foregroundStyle(Color.swMuted)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, 2)
+        }
     }
 }
 

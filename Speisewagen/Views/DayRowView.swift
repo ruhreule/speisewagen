@@ -1,4 +1,5 @@
 import SwiftUI
+import VisionKit
 
 /// Eine Zeile im Wochenplan, die einen einzelnen Tag darstellt.
 ///
@@ -13,10 +14,14 @@ struct DayRowView: View {
     let isEditing: Bool
     /// Geteilt mit ContentView, damit Auto-Save beim Zeilenwechsel funktioniert.
     @Binding var editingText: String
+    /// UUID des verknüpften Rezepts, wenn der Eintrag per Scan oder Autocomplete verlinkt wurde.
+    var recipeID: UUID? = nil
     let onStartEditing: () -> Void
     let onSave: () -> Void
     let onCancel: () -> Void
     let onDelete: () -> Void
+    var onScanRecipe: (() -> Void)? = nil
+    var onOpenRecipe: (() -> Void)? = nil
 
     /// Steuert den Keyboard-Fokus des TextField. Wird in `onChange(of: isEditing)`
     /// synchronisiert, damit das Keyboard beim Aktivieren der Zeile automatisch erscheint.
@@ -27,15 +32,15 @@ struct DayRowView: View {
     // Statische Formatter: einmalig erstellt, für alle Instanzen geteilt.
     private static let dayFmt: DateFormatter = {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "de_DE")
-        f.dateFormat = "EEE"    // "Mo", "Di", etc.
+        f.locale = .current
+        f.dateFormat = "EEE"
         return f
     }()
 
     private static let dateFmt: DateFormatter = {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "de_DE")
-        f.dateFormat = "dd.MM." // "03.07."
+        f.locale = .current
+        f.setLocalizedDateFormatFromTemplate("Md")
         return f
     }()
 
@@ -90,19 +95,36 @@ struct DayRowView: View {
                         .font(.system(size: 15))
                         .foregroundStyle(Color.swText)
 
+                    if let onScanRecipe {
+                        Button(action: onScanRecipe) {
+                            Image(systemName: "camera")
+                                .font(.system(size: 16))
+                                .foregroundStyle(Color.swAccent)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+
                     // Speichern-Button: grün wenn gültige Eingabe, gedämpft wenn leer
                     Button(action: onSave) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.title3)
+                            .font(.system(size: 20))
                             .foregroundStyle(hasValidInput ? Color.green : Color.swMuted)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                     .disabled(!hasValidInput)
 
                     Button(action: onCancel) {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.title3)
+                            .font(.system(size: 20))
                             .foregroundStyle(Color.swMuted)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                 } else {
                     Group {
                         if let name = mealName {
@@ -116,6 +138,21 @@ struct DayRowView: View {
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+
+                    // Buch-Icon erscheint, wenn ein Rezept verknüpft ist.
+                    // buttonStyle(.plain) + frame stellen sicher, dass der Button-Gesture
+                    // gegenüber dem onTapGesture der Zeile Vorrang hat und die
+                    // Trefferfläche groß genug ist (HIG: mind. 44×44 pt).
+                    if recipeID != nil, let onOpenRecipe {
+                        Button(action: onOpenRecipe) {
+                            Image(systemName: "book.closed.fill")
+                                .font(.system(size: 16))
+                                .foregroundStyle(Color.swAccent)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
 
                     // Löschen-Button erscheint nur, wenn ein Gericht eingetragen ist
                     if mealName != nil {

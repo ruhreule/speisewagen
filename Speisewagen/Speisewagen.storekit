@@ -1,0 +1,87 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "908680A5",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "5.99",
+      "familyShareable" : false,
+      "internalID" : "6791304775",
+      "localizations" : [
+        {
+          "description" : "Unterstütze diese App mit deinem Trinkgeld",
+          "displayName" : "Trinkgeld Groß",
+          "locale" : "de"
+        }
+      ],
+      "productID" : "eu.barann.speisewagen.tip.large",
+      "referenceName" : "Trinkgeld Groß",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "1.99",
+      "familyShareable" : false,
+      "internalID" : "6791304326",
+      "localizations" : [
+        {
+          "description" : "Unterstütze diese App mit deinem Trinkgeld",
+          "displayName" : "Trinkgeld",
+          "locale" : "de"
+        }
+      ],
+      "productID" : "eu.barann.speisewagen.tip.small",
+      "referenceName" : "Trinkgeld klein",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "3.99",
+      "familyShareable" : false,
+      "internalID" : "6791304801",
+      "localizations" : [
+        {
+          "description" : "Unterstütze diese App mit deinem Trinkgeld",
+          "displayName" : "Trinkgeld mittel",
+          "locale" : "de"
+        }
+      ],
+      "productID" : "eu.barann.speisewagen.tip.medium",
+      "referenceName" : "Trinkgeld mittel",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6763240214",
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_developerTeamID" : "UVY6HA3C9V",
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 806098100.14854097,
+    "_locale" : "de",
+    "_renewalBillingIssuesEnabled" : false,
+    "_storefront" : "DEU",
+    "_storeKitErrors" : [
+
+    ],
+    "_timeRate" : 0
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 5,
+    "minor" : 0
+  }
+}

@@ -34,14 +34,22 @@ struct CloudSharingView: UIViewControllerRepresentable {
         func itemTitle(for csc: UICloudSharingController) -> String? { "Speisewagen – Wochenmenü" }
 
         func cloudSharingControllerDidSaveShare(_ csc: UICloudSharingController) {
-            // UICloudSharingController sets minimumAppVersion to the current build number.
-            // Since the app is TestFlight-only, iOS can't verify that version in the App Store
-            // and shows an error to recipients. Clearing it removes the version gate.
+            // UICloudSharingController setzt minimumAppVersion auf die aktuelle Build-Nummer.
+            // Empfänger mit älterer App-Store-Version sehen "Update erforderlich".
+            // Direkt auf dem CKShare-Objekt löschen und mit .allKeys sichern –
+            // kein Fetch nötig, da UICloudSharingController das Objekt aktualisiert hat.
             share["minimumAppVersion"] = nil
             let op = CKModifyRecordsOperation(recordsToSave: [share])
-            op.savePolicy = .changedKeys
+            op.savePolicy = .allKeys
+            op.qualityOfService = .userInitiated
+            op.modifyRecordsResultBlock = { [weak self] result in
+                switch result {
+                case .success: print("✓ cloudSharingControllerDidSaveShare: minimumAppVersion geleert")
+                case .failure(let error): print("⚠️ cloudSharingControllerDidSaveShare: \(error)")
+                }
+                DispatchQueue.main.async { self?.onDismiss() }
+            }
             ckContainer.privateCloudDatabase.add(op)
-            onDismiss()
         }
 
         func cloudSharingControllerDidStopSharing(_ csc: UICloudSharingController) { onDismiss() }

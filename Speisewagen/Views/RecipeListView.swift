@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Rasteransicht aller gespeicherten Rezepte.
-/// Wird vom SideMenu per NavigationLink aufgerufen und nutzt dessen NavigationStack.
+/// Lebt im Rezepte-Tab; der übergeordnete NavigationStack liegt in SpeisewagenApp,
+/// damit RecipeDetailView innerhalb des Tabs navigiert (nicht über die Tab-Bar).
 struct RecipeListView: View {
     @EnvironmentObject private var store: MealStore
     @State private var showAddRecipe = false
@@ -96,12 +97,9 @@ struct RecipeListView: View {
 private struct RecipeCardView: View {
     let recipe: Recipe
 
-    /// Anzahl nicht-leerer Zutatenzeilen, für die Unterzeile der Karte.
+    /// Anzahl der Zutaten, für die Unterzeile der Karte.
     private var ingredientCount: Int {
-        guard let text = recipe.ingredients, !text.isEmpty else { return 0 }
-        return text.components(separatedBy: "\n")
-            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-            .count
+        recipe.sortedIngredients.count
     }
 
     var body: some View {
@@ -140,7 +138,7 @@ private struct RecipeCardView: View {
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(Color.white)
+        .background(Color.swSurface)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.07), radius: 4, x: 0, y: 2)
     }

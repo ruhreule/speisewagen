@@ -52,7 +52,9 @@ struct RecipePrintView: View {
                         .font(.system(size: 36))
                         .foregroundStyle(Color.swAccent)
                     let n = store.recipes.count
-                    Text("\(n) Karte\(n == 1 ? "" : "n") · 5 × 5 cm · DIN A4")
+                    (n == 1
+                        ? Text("\(n) Karte · 5 × 5 cm · DIN A4")
+                        : Text("\(n) Karten · 5 × 5 cm · DIN A4"))
                         .font(.system(size: 14))
                         .foregroundStyle(Color.swMuted)
                     Text("3 Spalten × 5 Zeilen = 15 pro Seite")
@@ -96,7 +98,7 @@ struct RecipePrintView: View {
                         }
                     }
                 }
-                .background(Color.white)
+                .background(Color.swSurface)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .padding(.horizontal, 16)
 

@@ -1,0 +1,2 @@
+CFBundleDisplayName = "Speisewagen";
+NSCameraUsageDescription = "Die Kamera wird verwendet, um Rezeptkarten zu scannen und den gewählten Tag automatisch mit dem Rezept zu verknüpfen.";

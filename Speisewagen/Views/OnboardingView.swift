@@ -42,9 +42,25 @@ struct OnboardingView: View {
             Color.swBg.ignoresSafeArea()
 
             VStack(spacing: 0) {
+                // Überspringen-Button oben rechts – nur auf den ersten Seiten sichtbar
+                HStack {
+                    Spacer()
+                    if currentPage < pages.count - 1 {
+                        Button("Überspringen") {
+                            hasSeenOnboarding = true
+                            dismiss()
+                        }
+                        .font(.system(size: 15))
+                        .foregroundStyle(Color.swMuted)
+                        .padding(.trailing, 20)
+                        .padding(.top, 16)
+                    }
+                }
+                .frame(height: 44)
+
                 // Logo
                 SpeisewagenLogo(size: 48)
-                    .padding(.top, 56)
+                    .padding(.top, 16)
                     .padding(.bottom, 8)
 
                 Text("Speisewagen")

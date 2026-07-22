@@ -98,7 +98,7 @@ struct ContentView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
-        .background { Color.white.ignoresSafeArea(edges: .top) }
+        .background { Color.swSurface.ignoresSafeArea(edges: .top) }
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color.swBorder).frame(height: 0.5)
         }
@@ -143,7 +143,7 @@ struct ContentView: View {
                 }
             }
             .frame(width: 34, height: 34)
-            .background(Color.white)
+            .background(Color.swSurface)
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
@@ -210,7 +210,7 @@ struct ContentView: View {
                 .font(.system(size: 20, design: .serif))
                 .foregroundStyle(Color.swMuted)
                 .frame(width: 34, height: 34)
-                .background(Color.white)
+                .background(Color.swSurface)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
@@ -236,15 +236,12 @@ struct ContentView: View {
                 DayRowView(
                     date: date,
                     mealName: meal(for: date)?.name,
-                    recipeID: meal(for: date)?.recipeID,
                     isEditing: editingDate.map { Calendar.current.isDate($0, inSameDayAs: date) } ?? false,
                     editingText: $editingText,
+                    recipeID: meal(for: date)?.recipeID,
                     onStartEditing: { startEditing(date: date) },
                     onSave: { save(for: date) },
-                    onCancel: {
-                        editingDate = nil
-                        pendingRecipeID = nil
-                    },
+                    onCancel: { delete(for: date) },
                     onDelete: { delete(for: date) },
                     onScanRecipe: {
                         if DataScannerViewController.isSupported {
@@ -287,7 +284,7 @@ struct ContentView: View {
                                     .font(.system(size: 14))
                                     .foregroundStyle(Color.swText)
                                 Spacer()
-                                Text(suggestion.recipeID != nil ? "Rezept ↩" : "↩")
+                                (suggestion.recipeID != nil ? Text("Rezept ↩") : Text("↩"))
                                     .font(.system(size: 12))
                                     .foregroundStyle(Color.swAccent.opacity(0.7))
                             }
@@ -296,7 +293,7 @@ struct ContentView: View {
                         }
                         .listRowInsets(EdgeInsets())
                         .listRowSeparator(.hidden)
-                        .listRowBackground(Color.white)
+                        .listRowBackground(Color.swSurface)
                     }
                 }
             }
@@ -321,6 +318,15 @@ struct ContentView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background(Color.swBg)
+        .onChange(of: editingText) { _, newValue in
+            // Wenn der Benutzer den Text manuell ändert und er nicht mehr mit
+            // dem verknüpften Rezepttitel übereinstimmt, Verknüpfung aufheben.
+            guard let id = pendingRecipeID,
+                  let recipe = store.recipes.first(where: { $0.id == id }) else { return }
+            if recipe.title?.caseInsensitiveCompare(newValue) != .orderedSame {
+                pendingRecipeID = nil
+            }
+        }
     }
 
     // MARK: – Footer
@@ -333,7 +339,7 @@ struct ContentView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
             // Kein ignoresSafeArea(.bottom) mehr – das TabView übernimmt den unteren Rand.
-            .background(Color.white)
+            .background(Color.swSurface)
             .overlay(alignment: .top) {
                 Rectangle().fill(Color.swBorder).frame(height: 0.5)
             }
@@ -382,15 +388,15 @@ struct ContentView: View {
 
     private static let weekFmt: DateFormatter = {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "de_DE")
-        f.dateFormat = "dd. MMM"
+        f.locale = .current
+        f.setLocalizedDateFormatFromTemplate("dMMM")
         return f
     }()
 
     private static let weekFmtYear: DateFormatter = {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "de_DE")
-        f.dateFormat = "dd. MMM yyyy"
+        f.locale = .current
+        f.setLocalizedDateFormatFromTemplate("dMMMy")
         return f
     }()
 

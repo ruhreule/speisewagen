@@ -1,0 +1,108 @@
+/* en.lproj/Localizable.strings
+   Keys are German source strings; values are English translations.
+*/
+
+/* ── Tabs ─────────────────────────────────────────────────── */
+"Wochenplan" = "Meal Plan";
+"Rezepte" = "Recipes";
+"Mehr" = "More";
+
+/* ── ContentView – Header ─────────────────────────────────── */
+"Wochenmenü" = "Weekly Menu";
+"Diese Woche" = "This Week";
+
+/* ── ContentView – Autocomplete hint ─────────────────────── */
+"Tippe auf einen Tag und gib die ersten Buchstaben ein – deine Rezepte und früheren Gerichte werden vorgeschlagen." = "Tap on a day and type the first letters – your recipes and previous meals will be suggested.";
+"Rezept ↩" = "Recipe ↩";
+
+/* ── ContentView – Sharing ────────────────────────────────── */
+"Füge zuerst mindestens ein Gericht hinzu." = "Add at least one meal first.";
+"Hinweis" = "Note";
+
+/* ── ContentView – Scanner ────────────────────────────────── */
+"Kamera nicht verfügbar" = "Camera Not Available";
+"Das Scannen von Rezeptkarten wird auf diesem Gerät nicht unterstützt." = "Scanning recipe cards is not supported on this device.";
+
+/* ── ContentView – Footer ─────────────────────────────────── */
+"Guten Appetit" = "Bon Appétit";
+
+/* ── DayRowView ───────────────────────────────────────────── */
+"Gericht eintragen…" = "Enter a meal…";
+"Noch nichts geplant" = "Nothing planned yet";
+"Löschen" = "Delete";
+
+/* ── RecipeListView ───────────────────────────────────────── */
+"Noch keine Rezepte" = "No Recipes Yet";
+"Tippe auf + um dein erstes Rezept hinzuzufügen." = "Tap + to add your first recipe.";
+
+/* ── RecipeDetailView ─────────────────────────────────────── */
+"Ohne Titel" = "Untitled";
+"Für %lld Person" = "For %lld person";
+"Für %lld Personen" = "For %lld people";
+"Zutaten" = "Ingredients";
+"Zubereitung" = "Instructions";
+"Bearbeiten" = "Edit";
+"Rezept löschen?" = "Delete Recipe?";
+"Das Rezept wird unwiderruflich gelöscht." = "The recipe will be permanently deleted.";
+"Abbrechen" = "Cancel";
+
+/* ── RecipeEditView ───────────────────────────────────────── */
+"Neues Rezept" = "New Recipe";
+"Rezept bearbeiten" = "Edit Recipe";
+"Sichern" = "Save";
+"Titel" = "Title";
+"z. B. Pasta Bolognese" = "e.g. Pasta Bolognese";
+"Portionen" = "Servings";
+"%lld Person" = "%lld person";
+"%lld Personen" = "%lld people";
+"Zutat hinzufügen" = "Add Ingredient";
+"Beschreibe die Zubereitungsschritte…" = "Describe the preparation steps…";
+"Foto hinzufügen" = "Add Photo";
+"Ändern" = "Change";
+"Menge" = "Amount";
+"Einheit" = "Unit";
+"Zutat" = "Ingredient";
+"Keine Einheit" = "No Unit";
+
+/* ── RecipePrintView ──────────────────────────────────────── */
+"Rezeptkarten" = "Recipe Cards";
+"Keine Rezepte" = "No Recipes";
+"Füge zuerst Rezepte hinzu, um Karten drucken zu können." = "Add recipes first to be able to print cards.";
+"%lld Karte · 5 × 5 cm · DIN A4" = "%lld card · 5 × 5 cm · A4";
+"%lld Karten · 5 × 5 cm · DIN A4" = "%lld cards · 5 × 5 cm · A4";
+"3 Spalten × 5 Zeilen = 15 pro Seite" = "3 columns × 5 rows = 15 per page";
+"Jetzt drucken" = "Print Now";
+
+/* ── TipJarView ───────────────────────────────────────────── */
+"Trinkgeld" = "Tip Jar";
+"Speisewagen unterstützen" = "Support Speisewagen";
+"Die App ist kostenlos und werbefrei.\nWenn du magst, kannst du die Entwicklung\nmit einem kleinen Trinkgeld unterstützen." = "The app is free and ad-free.\nIf you like, you can support the\ndevelopment with a small tip.";
+"Produkte konnten nicht geladen werden.\nBitte überprüfe deine Internetverbindung." = "Products could not be loaded.\nPlease check your internet connection.";
+"Danke!" = "Thank You!";
+"Deine Unterstützung bedeutet mir sehr viel." = "Your support means a lot to me.";
+"Schließen" = "Close";
+
+/* ── OnboardingView ───────────────────────────────────────── */
+"Willkommen beim\nSpeisewagen" = "Welcome to\nSpeisewagen";
+"Dein digitaler Speiseplan. Plane die Woche, verwalte Rezepte und behalte immer den Überblick." = "Your digital meal planner. Plan the week, manage recipes and always keep track.";
+"Tippe auf einen Tag, um ein Gericht einzutragen. Deine Rezepte und früheren Gerichte werden als Vorschlag angezeigt." = "Tap on a day to enter a meal. Your recipes and previous meals will be shown as suggestions.";
+"Lege Rezepte mit Zutaten und Zubereitung an. Drucke Rezeptkarten mit QR-Code und scanne sie, um ein Rezept einem Tag zuzuweisen." = "Create recipes with ingredients and instructions. Print recipe cards with a QR code and scan them to assign a recipe to a day.";
+"iCloud-Sync" = "iCloud Sync";
+"Speiseplan und Rezepte werden automatisch auf all deinen Geräten synchronisiert." = "Meal plan and recipes are automatically synced across all your devices.";
+"Überspringen" = "Skip";
+"Weiter" = "Next";
+"Los geht's" = "Let's Go";
+
+/* ── MehrView ─────────────────────────────────────────────── */
+"Rezeptkarten drucken" = "Print Recipe Cards";
+"App-Einführung" = "App Introduction";
+"Impressum" = "Imprint";
+
+/* ── ImpressumView ────────────────────────────────────────── */
+"Wochenmenü-App für iOS" = "Weekly Menu App for iOS";
+"Entwickler" = "Developer";
+"Version" = "Version";
+
+/* ── RecipeScannerView ────────────────────────────────────── */
+"Rezept nicht gefunden" = "Recipe Not Found";
+"Der QR-Code gehört zu keinem Rezept in deiner App." = "The QR code does not belong to any recipe in your app.";

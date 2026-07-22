@@ -32,7 +32,9 @@ struct RecipeDetailView: View {
                             .foregroundStyle(Color.swText)
 
                         if recipe.servings > 0 {
-                            Text("Für \(recipe.servings) \(recipe.servings == 1 ? "Person" : "Personen")")
+                            (recipe.servings == 1
+                                ? Text("Für \(Int(recipe.servings)) Person")
+                                : Text("Für \(Int(recipe.servings)) Personen"))
                                 .font(.system(size: 13))
                                 .foregroundStyle(Color.swMuted)
                         }
@@ -129,7 +131,7 @@ struct RecipeDetailView: View {
                     }
                 }
             }
-            .background(Color.white)
+            .background(Color.swSurface)
             .clipShape(RoundedRectangle(cornerRadius: 10))
         }
     }
@@ -143,7 +145,7 @@ struct RecipeDetailView: View {
                 .lineSpacing(5)
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.white)
+                .background(Color.swSurface)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
         }
     }

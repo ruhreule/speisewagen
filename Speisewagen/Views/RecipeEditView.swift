@@ -53,7 +53,7 @@ struct RecipeEditView: View {
                         // Personenanzahl
                         formField(label: "Portionen") {
                             HStack {
-                                Text("\(servings) \(servings == 1 ? "Person" : "Personen")")
+                                (servings == 1 ? Text("\(servings) Person") : Text("\(servings) Personen"))
                                     .font(.system(size: 16))
                                     .foregroundStyle(Color.swText)
                                 Spacer()
@@ -79,7 +79,7 @@ struct RecipeEditView: View {
                                     }
                                 }
                             }
-                            .background(Color.white)
+                            .background(Color.swSurface)
                             .clipShape(RoundedRectangle(cornerRadius: 10))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 10)
@@ -99,7 +99,7 @@ struct RecipeEditView: View {
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 11)
-                                .background(Color.white)
+                                .background(Color.swSurface)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 10)
@@ -219,7 +219,7 @@ struct RecipeEditView: View {
                 .foregroundStyle(Color.swMuted)
             content()
                 .padding(12)
-                .background(Color.white)
+                .background(Color.swSurface)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)

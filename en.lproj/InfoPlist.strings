@@ -1,0 +1,2 @@
+CFBundleDisplayName = "Speisewagen";
+NSCameraUsageDescription = "The camera is used to scan recipe cards and automatically link the selected day to the recipe.";

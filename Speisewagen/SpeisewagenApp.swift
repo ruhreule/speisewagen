@@ -14,6 +14,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 struct SpeisewagenApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var store = MealStore.shared
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
 
     var body: some Scene {
         WindowGroup {
@@ -44,20 +45,49 @@ struct SpeisewagenApp: App {
             // Akzentfarbe gilt für alle Tab-Icons und Navigationslinks
             .tint(Color.swAccent)
             .environmentObject(store)
+            .fullScreenCover(isPresented: Binding(
+                get: { !hasSeenOnboarding },
+                set: { _ in }
+            )) {
+                OnboardingView()
+            }
         }
     }
 }
 
 /// Dritter Tab: listet sekundäre App-Inhalte auf.
 private struct MehrView: View {
+    @State private var showOnboarding = false
+
     var body: some View {
         List {
+            NavigationLink {
+                RecipePrintView()
+            } label: {
+                Label("Rezeptkarten drucken", systemImage: "printer")
+                    .foregroundStyle(Color.swText)
+            }
+            NavigationLink {
+                TipJarView()
+            } label: {
+                Label("Trinkgeld", systemImage: "heart")
+                    .foregroundStyle(Color.swText)
+            }
+            Button {
+                showOnboarding = true
+            } label: {
+                Label("App-Einführung", systemImage: "questionmark.circle")
+                    .foregroundStyle(Color.swText)
+            }
             NavigationLink {
                 ImpressumView()
             } label: {
                 Label("Impressum", systemImage: "info.circle")
                     .foregroundStyle(Color.swText)
             }
+        }
+        .sheet(isPresented: $showOnboarding) {
+            OnboardingView()
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
