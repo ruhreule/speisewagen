@@ -1,0 +1,64 @@
+{
+  "identifier" : "speisewagen_tips",
+  "nonConsumableProducts" : [],
+  "consumableProducts" : [
+    {
+      "displayPrice" : "1.99",
+      "familyShareable" : false,
+      "internalID" : "1001",
+      "localizations" : [
+        {
+          "description" : "Ein kleines Dankeschön für den Entwickler",
+          "displayName" : "Kleines Trinkgeld",
+          "locale" : "de_DE"
+        }
+      ],
+      "productID" : "eu.barann.speisewagen.tip.small",
+      "referenceName" : "Kleines Trinkgeld",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "1002",
+      "localizations" : [
+        {
+          "description" : "Vielen Dank für deine Unterstützung",
+          "displayName" : "Mittleres Trinkgeld",
+          "locale" : "de_DE"
+        }
+      ],
+      "productID" : "eu.barann.speisewagen.tip.medium",
+      "referenceName" : "Mittleres Trinkgeld",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : false,
+      "internalID" : "1003",
+      "localizations" : [
+        {
+          "description" : "Du bist der Beste – herzlichen Dank!",
+          "displayName" : "Großes Trinkgeld",
+          "locale" : "de_DE"
+        }
+      ],
+      "productID" : "eu.barann.speisewagen.tip.large",
+      "referenceName" : "Großes Trinkgeld",
+      "type" : "Consumable"
+    }
+  ],
+  "autoRenewableSubscriptions" : [],
+  "nonRenewingSubscriptions" : [],
+  "settings" : {
+    "_locale" : "de_DE",
+    "_storefront" : "DEU",
+    "_failTransactionsEnabled" : false,
+    "_storeKitErrors" : []
+  },
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 2,
+    "minor" : 0
+  }
+}

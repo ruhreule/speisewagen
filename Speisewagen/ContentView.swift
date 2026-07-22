@@ -1,9 +1,17 @@
 import SwiftUI
 import CloudKit
+import VisionKit
 
-/// Haupt-View der App. Zeigt den wochenweisen Speiseplan an und koordiniert
-/// alle Nutzerinteraktionen: Bearbeiten von Mahlzeiten, Wochennavigation,
-/// iCloud-Sharing und das Seitenmenü.
+/// Autocomplete-Vorschlag: entweder ein verlinktes Rezept (recipeID != nil)
+/// oder ein früherer Eintrag ohne Rezeptbindung.
+struct MealSuggestion: Identifiable {
+    let id: UUID
+    let name: String
+    let recipeID: UUID?
+}
+
+/// Wochenplan-Tab. Zeigt den 7-Tage-Speiseplan und koordiniert alle
+/// Bearbeitungsinteraktionen. Lebt als erster Tab innerhalb des TabView in SpeisewagenApp.
 struct ContentView: View {
     @EnvironmentObject private var store: MealStore
 
@@ -14,6 +22,9 @@ struct ContentView: View {
     /// Der Textinhalt des aktiven Eingabefeldes; liegt in ContentView, damit
     /// Auto-Save beim Zeilenwechsel möglich ist.
     @State private var editingText: String = ""
+    /// Rezept-UUID, die beim nächsten Speichern mitgespeichert wird. Wird gesetzt,
+    /// wenn der Benutzer ein Rezept aus dem Autocomplete wählt oder per QR scannt.
+    @State private var pendingRecipeID: UUID? = nil
 
     // --- Sharing-Zustand ---
     @State private var isPreparingShare = false
@@ -21,56 +32,60 @@ struct ContentView: View {
     @State private var activeContainer: CKContainer? = nil
     @State private var showShareSheet = false
     @State private var sharingError: String? = nil
+    @State private var showScanner = false
+    @State private var showScannerUnsupportedAlert = false
+    /// Datum, für das der Scanner geöffnet wurde – explizit gespeichert, damit
+    /// die Sheet-Closure immer den richtigen Tag hat, unabhängig vom Capture-Zeitpunkt.
+    @State private var scannerTargetDate: Date? = nil
+    /// Rezept, das als Detailansicht geöffnet werden soll (nil = kein Sheet).
+    @State private var linkedRecipe: Recipe? = nil
 
-    /// Steuert die Sichtbarkeit des Seitenmenüs.
-    @State private var showSideMenu = false
-
-    /// Kurzform für `store.meals`; verhindert direkte Referenzen auf den Store in Views.
     private var allMeals: [MealEntry] { store.meals }
 
     var body: some View {
-        // GeometryReader als äußerster Container, damit die Breite des Seitenmenüs
-        // relativ zur aktuellen Screen-Größe berechnet wird (nicht UIScreen.main.bounds,
-        // das auf iPads mit Split View falsche Werte liefern kann).
-        GeometryReader { geo in
-            ZStack(alignment: .trailing) {
-                VStack(spacing: 0) {
-                    headerView
-                    mealList
-                    footerView
-                }
-                .background(Color.swBg)
-                .sheet(isPresented: $showShareSheet) {
-                    if let share = activeShare, let ckContainer = activeContainer {
-                        CloudSharingView(share: share, container: ckContainer) {
-                            showShareSheet = false
-                        }
-                    }
-                }
-                .alert("Hinweis", isPresented: Binding(
-                    get: { sharingError != nil },
-                    set: { if !$0 { sharingError = nil } }
-                )) {
-                    Button("OK") { sharingError = nil }
-                } message: {
-                    Text(sharingError ?? "")
-                }
-
-                // Seitenmenü: Dimm-Overlay schließt das Menü per Tap,
-                // das eigentliche Menü gleitet von rechts herein.
-                if showSideMenu {
-                    Color.black.opacity(0.3)
-                        .ignoresSafeArea()
-                        .onTapGesture { showSideMenu = false }
-
-                    SideMenuView(onClose: { showSideMenu = false })
-                        .frame(width: geo.size.width * 0.78)
-                        .ignoresSafeArea()
-                        .transition(.move(edge: .trailing))
+        VStack(spacing: 0) {
+            headerView
+            mealList
+            footerView
+        }
+        .background(Color.swBg)
+        .sheet(isPresented: $showShareSheet) {
+            if let share = activeShare, let ckContainer = activeContainer {
+                CloudSharingView(share: share, container: ckContainer) {
+                    showShareSheet = false
                 }
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: showSideMenu)
+        .sheet(isPresented: $showScanner) {
+            RecipeScannerSheet { title, recipeID in
+                if let date = scannerTargetDate {
+                    store.save(name: title, recipeID: recipeID, for: date)
+                    editingDate = nil
+                    pendingRecipeID = nil
+                    scannerTargetDate = nil
+                }
+            }
+            .environmentObject(store)
+        }
+        .sheet(item: $linkedRecipe) { recipe in
+            NavigationStack {
+                RecipeDetailView(recipe: recipe)
+            }
+            .environmentObject(store)
+        }
+        .alert("Hinweis", isPresented: Binding(
+            get: { sharingError != nil },
+            set: { if !$0 { sharingError = nil } }
+        )) {
+            Button("OK") { sharingError = nil }
+        } message: {
+            Text(sharingError ?? "")
+        }
+        .alert("Kamera nicht verfügbar", isPresented: $showScannerUnsupportedAlert) {
+            Button("OK") { }
+        } message: {
+            Text("Das Scannen von Rezeptkarten wird auf diesem Gerät nicht unterstützt.")
+        }
     }
 
     // MARK: – Header
@@ -83,10 +98,8 @@ struct ContentView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
-        // Weißer Hintergrund wird durch die Status-Bar-Höhe nach oben verlängert.
         .background { Color.white.ignoresSafeArea(edges: .top) }
         .overlay(alignment: .bottom) {
-            // Trennlinie zwischen Header und Liste
             Rectangle().fill(Color.swBorder).frame(height: 0.5)
         }
     }
@@ -110,7 +123,6 @@ struct ContentView: View {
             Spacer()
 
             shareButton
-            menuButton
         }
     }
 
@@ -141,26 +153,6 @@ struct ContentView: View {
         .disabled(isPreparingShare)
     }
 
-    private var menuButton: some View {
-        Button {
-            showSideMenu = true
-        } label: {
-            Image(systemName: "line.3.horizontal")
-                .font(.system(size: 17))
-                .foregroundStyle(Color.swMuted)
-                .frame(width: 34, height: 34)
-                .background(Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.swBorder, lineWidth: 1)
-                )
-        }
-    }
-
-    /// Startet den Share-Vorbereitungsprozess.
-    /// Die Prüfung auf leere Mahlzeitenliste erfolgt lokal (schnell, kein Netzwerk),
-    /// bevor der teurere iCloud-Aufruf in `store.prepareShare` stattfindet.
     private func initiateSharing() {
         guard !allMeals.isEmpty else {
             sharingError = "Füge zuerst mindestens ein Gericht hinzu."
@@ -180,7 +172,6 @@ struct ContentView: View {
     }
 
     /// Fortschrittsbalken: jeder der 7 Balken entspricht einem Wochentag.
-    /// Ausgefüllte Balken (Mahlzeit vorhanden) werden in der Akzentfarbe gezeigt.
     private var progressBarView: some View {
         HStack(spacing: 3) {
             ForEach(0..<7, id: \.self) { i in
@@ -197,7 +188,6 @@ struct ContentView: View {
             navButton(direction: -1)
             Spacer()
             HStack(spacing: 6) {
-                // Kleiner Punkt signalisiert, dass die aktuelle Woche angezeigt wird.
                 if weekOffset == 0 {
                     Circle()
                         .fill(Color.swAccent)
@@ -212,7 +202,6 @@ struct ContentView: View {
         }
     }
 
-    /// Erstellt einen Navigations-Button für Vorwärts/Rückwärts-Navigation durch Wochen.
     private func navButton(direction: Int) -> some View {
         Button {
             weekOffset += direction
@@ -234,7 +223,6 @@ struct ContentView: View {
 
     private var mealList: some View {
         List {
-            // Abschnittsüberschrift
             Text("Diese Woche")
                 .font(.system(size: 11, weight: .semibold))
                 .kerning(1.2)
@@ -248,34 +236,58 @@ struct ContentView: View {
                 DayRowView(
                     date: date,
                     mealName: meal(for: date)?.name,
-                    // `editingDate.map` liefert false, wenn editingDate nil ist,
-                    // ansonsten wird per Kalender-Vergleich geprüft (nicht == auf Date,
-                    // um Uhrzeit-Abweichungen zu vermeiden).
+                    recipeID: meal(for: date)?.recipeID,
                     isEditing: editingDate.map { Calendar.current.isDate($0, inSameDayAs: date) } ?? false,
                     editingText: $editingText,
                     onStartEditing: { startEditing(date: date) },
                     onSave: { save(for: date) },
-                    onCancel: { editingDate = nil },
-                    onDelete: { delete(for: date) }
+                    onCancel: {
+                        editingDate = nil
+                        pendingRecipeID = nil
+                    },
+                    onDelete: { delete(for: date) },
+                    onScanRecipe: {
+                        if DataScannerViewController.isSupported {
+                            scannerTargetDate = editingDate
+                            showScanner = true
+                        } else {
+                            showScannerUnsupportedAlert = true
+                        }
+                    },
+                    onOpenRecipe: {
+                        if let id = meal(for: date)?.recipeID {
+                            linkedRecipe = store.recipes.first { $0.id == id }
+                        }
+                    }
                 )
 
-                // Autocomplete-Vorschläge werden als eigene Listenzeilen direkt
-                // unterhalb der aktiven Zeile eingefügt. So passt sich das
-                // Scrollverhalten nahtlos in die bestehende List-Struktur ein.
+                // Autocomplete-Vorschläge direkt unterhalb der aktiven Zeile
                 if editingDate == date && !suggestions.isEmpty {
-                    ForEach(suggestions, id: \.self) { suggestion in
+                    ForEach(suggestions) { suggestion in
                         Button {
-                            editingText = suggestion
+                            if let recipeID = suggestion.recipeID {
+                                // Rezept-Vorschlag: sofort speichern und Editiermodus verlassen
+                                store.save(name: suggestion.name, recipeID: recipeID, for: date)
+                                editingDate = nil
+                                pendingRecipeID = nil
+                            } else {
+                                // Einfacher Textvorschlag: nur Textfeld füllen
+                                editingText = suggestion.name
+                                pendingRecipeID = nil
+                            }
                         } label: {
-                            HStack {
-                                // Einrückung entspricht der Breite der Datumsspalte + Trennlinie
+                            HStack(spacing: 6) {
                                 Spacer().frame(width: 54)
-                                Text(suggestion)
+                                if suggestion.recipeID != nil {
+                                    Image(systemName: "book.closed.fill")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(Color.swAccent.opacity(0.7))
+                                }
+                                Text(suggestion.name)
                                     .font(.system(size: 14))
                                     .foregroundStyle(Color.swText)
                                 Spacer()
-                                // Visueller Hinweis: Vorschlag per Return-Taste übernehmen
-                                Text("↩")
+                                Text(suggestion.recipeID != nil ? "Rezept ↩" : "↩")
                                     .font(.system(size: 12))
                                     .foregroundStyle(Color.swAccent.opacity(0.7))
                             }
@@ -289,13 +301,11 @@ struct ContentView: View {
                 }
             }
 
-            // Onboarding-Hinweis auf Autocomplete – erscheint nur, wenn bereits
-            // mindestens ein Gericht gespeichert wurde.
-            if !store.allNames.isEmpty {
+            if !store.allNames.isEmpty || !store.recipes.isEmpty {
                 HStack(spacing: 8) {
                     Text("💡")
                         .font(.system(size: 16))
-                    Text("Tippe auf einen Tag und gib die ersten Buchstaben ein – deine früheren Gerichte werden vorgeschlagen.")
+                    Text("Tippe auf einen Tag und gib die ersten Buchstaben ein – deine Rezepte und früheren Gerichte werden vorgeschlagen.")
                         .font(.system(size: 12))
                         .foregroundStyle(Color.swMuted)
                 }
@@ -322,9 +332,8 @@ struct ContentView: View {
             .foregroundStyle(Color.swMuted.opacity(0.75))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background {
-                Color.white.ignoresSafeArea(edges: .bottom)
-            }
+            // Kein ignoresSafeArea(.bottom) mehr – das TabView übernimmt den unteren Rand.
+            .background(Color.white)
             .overlay(alignment: .top) {
                 Rectangle().fill(Color.swBorder).frame(height: 0.5)
             }
@@ -332,25 +341,38 @@ struct ContentView: View {
 
     // MARK: – Hilfswerte
 
-    /// Anzahl der Wochentage, für die bereits eine Mahlzeit eingetragen ist.
-    /// Steuert den Fortschrittsbalken im Header.
     private var filledCount: Int {
         weekDates.filter { meal(for: $0) != nil }.count
     }
 
-    /// Filtert `store.allNames` nach dem aktuellen Eingabetext.
-    /// Exakte Treffer werden ausgeschlossen – wer genau das Gericht tippt, braucht
-    /// keinen Vorschlag mehr.
-    private var suggestions: [String] {
+    /// Kombinierte Vorschlagsliste: Rezepte zuerst (mit Verlinkung), dann frühere
+    /// Gerichtnamen ohne Rezeptbindung. Duplikate (gleicher Name wie ein Rezept) werden
+    /// aus dem zweiten Block herausgefiltert.
+    private var suggestions: [MealSuggestion] {
         let trimmed = editingText.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return [] }
-        return store.allNames.filter {
-            $0.localizedCaseInsensitiveContains(trimmed) &&
-            $0.caseInsensitiveCompare(trimmed) != .orderedSame
+
+        // 1. Passende Rezepte
+        var result: [MealSuggestion] = store.recipes.compactMap { recipe in
+            guard let title = recipe.title, let id = recipe.id,
+                  title.localizedCaseInsensitiveContains(trimmed),
+                  title.caseInsensitiveCompare(trimmed) != .orderedSame
+            else { return nil }
+            return MealSuggestion(id: id, name: title, recipeID: id)
         }
+
+        // 2. Frühere Gerichtnamen, die noch kein Rezept mit diesem Namen haben
+        let recipeNames = Set(result.map { $0.name.lowercased() })
+        let pastMeals = store.allNames.filter {
+            $0.localizedCaseInsensitiveContains(trimmed) &&
+            $0.caseInsensitiveCompare(trimmed) != .orderedSame &&
+            !recipeNames.contains($0.lowercased())
+        }.map { MealSuggestion(id: UUID(), name: $0, recipeID: nil) }
+
+        result.append(contentsOf: pastMeals)
+        return result
     }
 
-    /// Die 7 Tagesdaten (Montag–Sonntag) der aktuell angezeigten Woche.
     private var weekDates: [Date] {
         let monday = mondayOfWeek(offset: weekOffset)
         return (0..<7).compactMap {
@@ -358,7 +380,6 @@ struct ContentView: View {
         }
     }
 
-    // Statische Formatter vermeiden wiederholte Allokation bei jedem Render-Durchlauf.
     private static let weekFmt: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "de_DE")
@@ -373,7 +394,6 @@ struct ContentView: View {
         return f
     }()
 
-    /// Anzeige-Titel der Wochennavigation, z. B. „30. Jun – 06. Jul 2025".
     private var weekRangeTitle: String {
         guard let monday = weekDates.first, let lastDay = weekDates.last else { return "" }
         return "\(Self.weekFmt.string(from: monday)) – \(Self.weekFmtYear.string(from: lastDay))"
@@ -383,55 +403,51 @@ struct ContentView: View {
         store.meal(for: date)
     }
 
-    /// Wechselt in den Bearbeitungsmodus für `date`.
-    /// Falls vorher ein anderer Tag bearbeitet wurde, wird dessen Inhalt
-    /// automatisch gespeichert (Auto-Save beim Zeilenwechsel).
+    /// Wechselt in den Bearbeitungsmodus. Speichert den vorherigen Eintrag automatisch
+    /// und lädt die bestehende Rezeptverknüpfung als pendingRecipeID.
     private func startEditing(date: Date) {
         if let prev = editingDate, prev != date {
             let trimmed = editingText.trimmingCharacters(in: .whitespaces)
-            if !trimmed.isEmpty { store.save(name: trimmed, for: prev) }
+            if !trimmed.isEmpty { store.save(name: trimmed, recipeID: pendingRecipeID, for: prev) }
         }
-        editingText = meal(for: date)?.name ?? ""
+        let existing = meal(for: date)
+        editingText = existing?.name ?? ""
+        pendingRecipeID = existing?.recipeID
         editingDate = date
     }
 
-    /// Speichert den aktuellen Eingabetext für `date` und beendet die Bearbeitung.
-    /// Leere Eingaben werden ignoriert (kein leerer String wird gespeichert).
     private func save(for date: Date) {
         let trimmed = editingText.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else {
             editingDate = nil
+            pendingRecipeID = nil
             return
         }
-        store.save(name: trimmed, for: date)
+        store.save(name: trimmed, recipeID: pendingRecipeID, for: date)
         editingDate = nil
+        pendingRecipeID = nil
     }
 
     private func delete(for date: Date) {
         store.delete(for: date)
-        // Editier-Status zurücksetzen, falls der gerade bearbeitete Tag gelöscht wird.
-        if editingDate == date { editingDate = nil }
+        if editingDate == date {
+            editingDate = nil
+            pendingRecipeID = nil
+        }
     }
 
     /// Berechnet den Montag der Woche mit dem gegebenen Offset (0 = aktuelle Woche).
-    ///
-    /// Verwendet einen Calendar mit `firstWeekday = 2` (Montag), um auch in Regionen,
-    /// wo Sonntag als erster Wochentag gilt (z.B. USA), korrekt zu rechnen.
-    /// Der statische Calendar wird gecacht, damit er nicht bei jedem Render-Aufruf
-    /// neu aufgebaut werden muss.
+    /// `yearForWeekOfYear` ist entscheidend für korrekte KW-Arithmetik am Jahreswechsel.
     private func mondayOfWeek(offset: Int) -> Date {
-        // `yearForWeekOfYear` ist entscheidend für korrekte Kalenderwochen-Arithmetik
-        // am Jahreswechsel (z. B. 1. Januar kann KW 52 des Vorjahres sein).
         let comps = Self.weekCalendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date())
         let monday = Self.weekCalendar.date(from: comps)!
         return Self.weekCalendar.date(byAdding: .weekOfYear, value: offset, to: monday)!
     }
 
     /// Gecachter Calendar mit Montag als erstem Wochentag.
-    /// `static` verhindert, dass bei jedem `weekDates`-Aufruf ein neues Struct erstellt wird.
     private static let weekCalendar: Calendar = {
         var cal = Calendar.current
-        cal.firstWeekday = 2  // ISO: Montag
+        cal.firstWeekday = 2
         return cal
     }()
 }

@@ -2,7 +2,7 @@ import CoreData
 import CloudKit
 import SwiftUI
 
-/// Zentraler Datenspeicher der App. Hält alle Mahlzeiten im Arbeitsspeicher,
+/// Zentraler Datenspeicher der App. Hält alle Mahlzeiten und Rezepte im Arbeitsspeicher,
 /// vermittelt zwischen SwiftUI-Views und CoreData und steuert die iCloud-Synchronisation.
 ///
 /// Als Singleton (`MealStore.shared`) wird die Instanz einmalig erzeugt und über
@@ -11,28 +11,23 @@ final class MealStore: ObservableObject {
     static let shared = MealStore()
 
     /// Alle gespeicherten Mahlzeiten, aufsteigend nach Datum sortiert.
-    /// Wird nach jedem Speichern/Löschen und bei Remote-Änderungen aus iCloud neu befüllt.
     @Published var meals: [MealEntry] = []
 
     /// Deduplizierte, alphabetisch sortierte Liste aller jemals eingegebenen Gerichtnamen.
-    /// Wird für die Autocomplete-Vorschläge in der Editierzeile verwendet.
-    /// `private(set)`, damit Views lesen, aber nicht schreiben können.
+    /// Wird für Autocomplete-Vorschläge verwendet.
     @Published private(set) var allNames: [String] = []
 
-    /// Zeigt an, ob mindestens ein aktiver CKShare existiert (private oder shared Store).
-    /// Steuert das Icon und den Rahmen des Share-Buttons im Header.
+    /// Zeigt an, ob mindestens ein aktiver CKShare existiert.
     @Published var isShared = false
 
-    /// Der NSPersistentCloudKitContainer, der sowohl CoreData als auch CloudKit-Synchronisation
-    /// kapselt. Zwei Stores: privater iCloud-Store und geteilter (shared) Store.
-    let container: NSPersistentCloudKitContainer
+    /// Alle Rezepte, neueste zuerst sortiert.
+    @Published var recipes: [Recipe] = []
 
+    let container: NSPersistentCloudKitContainer
     private var privateStore: NSPersistentStore?
     private var sharedStore: NSPersistentStore?
 
     private init() {
-        // Das CoreData-Modell wird vollständig im Code aufgebaut (siehe makeModel()),
-        // sodass keine .xcdatamodeld-Datei im Bundle nötig ist.
         container = NSPersistentCloudKitContainer(name: "Speisewagen",
                                                   managedObjectModel: Self.makeModel())
         setup()
@@ -41,88 +36,102 @@ final class MealStore: ObservableObject {
     // MARK: - Modell (kein .xcdatamodeld-File)
 
     /// Erstellt das CoreData-Modell programmgesteuert.
-    /// Vorteil: Keine separate .xcdatamodeld-Ressource, die gepflegt und versioniert
-    /// werden müsste – alle Modellinformationen sind im Code sichtbar und versionierbar.
+    /// Das vermeidet eine .xcdatamodeld-Ressource und hält alle Schemainformationen
+    /// versionierbar im Code.
     private static func makeModel() -> NSManagedObjectModel {
         let model = NSManagedObjectModel()
 
-        let entity = NSEntityDescription()
-        entity.name = "MealEntry"
-        // Muss mit dem @objc(MealEntry)-Attribut in MealEntry.swift übereinstimmen,
-        // damit CoreData die richtige Klasse instanziiert.
-        entity.managedObjectClassName = "MealEntry"
+        // MARK: MealEntry
+        let mealEntity = NSEntityDescription()
+        mealEntity.name = "MealEntry"
+        mealEntity.managedObjectClassName = "MealEntry"
 
         let idAttr = NSAttributeDescription()
-        idAttr.name = "id"
-        idAttr.attributeType = .UUIDAttributeType
-        idAttr.isOptional = true
+        idAttr.name = "id"; idAttr.attributeType = .UUIDAttributeType; idAttr.isOptional = true
 
         let dateAttr = NSAttributeDescription()
-        dateAttr.name = "date"
-        dateAttr.attributeType = .dateAttributeType
-        dateAttr.isOptional = true
+        dateAttr.name = "date"; dateAttr.attributeType = .dateAttributeType; dateAttr.isOptional = true
 
         let nameAttr = NSAttributeDescription()
-        nameAttr.name = "name"
-        nameAttr.attributeType = .stringAttributeType
-        nameAttr.isOptional = true
+        nameAttr.name = "name"; nameAttr.attributeType = .stringAttributeType; nameAttr.isOptional = true
 
-        entity.properties = [idAttr, dateAttr, nameAttr]
-        model.entities = [entity]
+        mealEntity.properties = [idAttr, dateAttr, nameAttr]
+
+        // MARK: Recipe
+        let recipeEntity = NSEntityDescription()
+        recipeEntity.name = "Recipe"
+        // Muss mit @objc(Recipe) in Recipe.swift übereinstimmen.
+        recipeEntity.managedObjectClassName = "Recipe"
+
+        let rId = NSAttributeDescription()
+        rId.name = "id"; rId.attributeType = .UUIDAttributeType; rId.isOptional = true
+
+        let rTitle = NSAttributeDescription()
+        rTitle.name = "title"; rTitle.attributeType = .stringAttributeType; rTitle.isOptional = true
+
+        let rIngredients = NSAttributeDescription()
+        rIngredients.name = "ingredients"; rIngredients.attributeType = .stringAttributeType; rIngredients.isOptional = true
+
+        let rInstructions = NSAttributeDescription()
+        rInstructions.name = "instructions"; rInstructions.attributeType = .stringAttributeType; rInstructions.isOptional = true
+
+        let rImageData = NSAttributeDescription()
+        rImageData.name = "imageData"; rImageData.attributeType = .binaryDataAttributeType; rImageData.isOptional = true
+        // Fotos werden automatisch als externe Dateien neben dem SQLite-Store abgelegt
+        // und von CloudKit als CKAsset synchronisiert. Hält die DB-Datei klein.
+        rImageData.allowsExternalBinaryDataStorage = true
+
+        let rCreatedAt = NSAttributeDescription()
+        rCreatedAt.name = "createdAt"; rCreatedAt.attributeType = .dateAttributeType; rCreatedAt.isOptional = true
+
+        recipeEntity.properties = [rId, rTitle, rIngredients, rInstructions, rImageData, rCreatedAt]
+
+        model.entities = [mealEntity, recipeEntity]
         return model
     }
 
     // MARK: - Setup
 
-    /// Konfiguriert und lädt die beiden Persistent Stores (privat + geteilt).
-    /// Registriert außerdem den Observer für Remote-Änderungen aus iCloud.
     private func setup() {
         let baseURL = NSPersistentContainer.defaultDirectoryURL()
 
-        // --- Privater Store: Nur der aktuelle Benutzer kann lesen/schreiben ---
         let privateDesc = NSPersistentStoreDescription(
             url: baseURL.appendingPathComponent("speisewagen.sqlite"))
-        // History Tracking ist Voraussetzung für NSPersistentCloudKitContainer,
-        // damit Änderungen korrekt mit iCloud synchronisiert werden können.
         privateDesc.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
-        // Aktiviert lokale Benachrichtigungen, sobald Remote-Daten eintreffen.
         privateDesc.setOption(true as NSNumber,
                               forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+        // Lightweight Migration erlaubt den Schemasprung von einer älteren Store-Version
+        // (ohne Recipe-Entity) auf die aktuelle. Neue Entities/Attribute sind immer
+        // lightweight-migrierbar – CoreData inferiert das Mapping automatisch.
+        privateDesc.shouldMigrateStoreAutomatically = true
+        privateDesc.shouldInferMappingModelAutomatically = true
         let privateOpts = NSPersistentCloudKitContainerOptions(
             containerIdentifier: "iCloud.eu.barann.speisewagen")
         privateOpts.databaseScope = .private
         privateDesc.cloudKitContainerOptions = privateOpts
 
-        // --- Geteilter Store: Enthält Einträge, die andere Benutzer geteilt haben ---
         let sharedDesc = NSPersistentStoreDescription(
             url: baseURL.appendingPathComponent("speisewagen-shared.sqlite"))
         sharedDesc.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
         sharedDesc.setOption(true as NSNumber,
                              forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+        sharedDesc.shouldMigrateStoreAutomatically = true
+        sharedDesc.shouldInferMappingModelAutomatically = true
         let sharedOpts = NSPersistentCloudKitContainerOptions(
             containerIdentifier: "iCloud.eu.barann.speisewagen")
         sharedOpts.databaseScope = .shared
         sharedDesc.cloudKitContainerOptions = sharedOpts
 
         container.persistentStoreDescriptions = [privateDesc, sharedDesc]
-
-        // Änderungen aus anderen Kontexten (z.B. Background-Sync) werden automatisch
-        // in den viewContext übernommen.
         container.viewContext.automaticallyMergesChangesFromParent = true
-        // Bei Konflikten gewinnt die Eigenschaft des Objekts im Speicher
-        // (kein vollständiges Objekt-Überschreiben).
         container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
 
-        // Beide Stores werden asynchron geladen; der Completion-Handler wird
-        // für jeden Store einzeln aufgerufen.
         container.loadPersistentStores { [weak self] storeDesc, error in
             DispatchQueue.main.async {
                 guard let self else { return }
                 if let error {
                     print("⚠️ Store-Ladefehler: \(error)")
                 } else if let url = storeDesc.url {
-                    // Store-Referenzen merken, damit später fetch/share auf dem
-                    // richtigen Store operieren können.
                     let store = self.container.persistentStoreCoordinator
                         .persistentStore(for: url)
                     if storeDesc.cloudKitContainerOptions?.databaseScope == .shared {
@@ -135,8 +144,6 @@ final class MealStore: ObservableObject {
             }
         }
 
-        // Wird ausgelöst, sobald iCloud neue Daten in einen der Stores geschrieben hat.
-        // Ermöglicht Echtzeit-Updates ohne Polling.
         NotificationCenter.default.addObserver(
             forName: .NSPersistentStoreRemoteChange,
             object: container.persistentStoreCoordinator,
@@ -146,28 +153,27 @@ final class MealStore: ObservableObject {
 
     // MARK: - Fetch
 
-    /// Liest alle Mahlzeiten aus dem viewContext und aktualisiert die @Published-Properties.
-    /// Wird nach jeder lokalen Mutation sowie bei Remote-Änderungen aufgerufen.
+    /// Liest Mahlzeiten und Rezepte aus dem viewContext und aktualisiert alle @Published-Properties.
     func fetch() {
+        // Mahlzeiten
         let req = NSFetchRequest<MealEntry>(entityName: "MealEntry")
         req.sortDescriptors = [NSSortDescriptor(key: "date", ascending: true)]
         meals = (try? container.viewContext.fetch(req)) ?? []
 
-        // Gerichtnamen deduplizieren und sortieren – in einem einzigen Durchlauf
-        // durch meals, kombiniert aus compactMap (nil-Filter + guard für leere Strings)
-        // und anschließendem Set für Einzigartigkeit.
         let uniqueNames = Set(meals.compactMap { entry -> String? in
             guard let name = entry.name, !name.isEmpty else { return nil }
             return name
         })
         allNames = uniqueNames.sorted()
 
+        // Rezepte: neueste zuerst, damit die Liste die Bearbeitungsreihenfolge widerspiegelt
+        let recipeReq = NSFetchRequest<Recipe>(entityName: "Recipe")
+        recipeReq.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: false)]
+        recipes = (try? container.viewContext.fetch(recipeReq)) ?? []
+
         refreshShareStatus()
     }
 
-    /// Prüft synchron, ob ein CKShare in einem der beiden Stores existiert.
-    /// Da im Normalfall höchstens ein Share pro Store vorkommt, ist der synchrone
-    /// Aufruf auf dem Main-Thread vertretbar.
     private func refreshShareStatus() {
         var shares: [CKShare] = []
         if let store = privateStore { shares += (try? container.fetchShares(in: store)) ?? [] }
@@ -175,16 +181,12 @@ final class MealStore: ObservableObject {
         isShared = !shares.isEmpty
     }
 
-    // MARK: - CRUD
+    // MARK: - Mahlzeiten-CRUD
 
-    /// Gibt die Mahlzeit für einen bestimmten Tag zurück, oder nil wenn keiner existiert.
-    /// Vergleich erfolgt per `isDate(_:inSameDayAs:)`, damit Uhrzeit-Unterschiede ignoriert werden.
     func meal(for date: Date) -> MealEntry? {
         meals.first { Calendar.current.isDate($0.date ?? .distantPast, inSameDayAs: date) }
     }
 
-    /// Speichert einen Gerichtnamen für einen Tag. Existiert bereits ein Eintrag, wird
-    /// `name` aktualisiert; sonst wird ein neuer MealEntry angelegt.
     func save(name: String, for date: Date) {
         let ctx = container.viewContext
         if let existing = meal(for: date) {
@@ -198,18 +200,41 @@ final class MealStore: ObservableObject {
         persist()
     }
 
-    /// Löscht den Mahlzeiteintrag für den angegebenen Tag, falls vorhanden.
     func delete(for date: Date) {
         guard let entry = meal(for: date) else { return }
         container.viewContext.delete(entry)
         persist()
     }
 
-    /// Speichert ausstehende Änderungen in den Persistent Store und löst danach
-    /// einen neuen Fetch aus, um die @Published-Properties zu aktualisieren.
-    /// Der anschließende Remote-Change-Observer würde ebenfalls einen Fetch auslösen,
-    /// aber nur bei tatsächlichen CloudKit-Roundtrips – der direkte fetch()-Aufruf
-    /// hier sorgt für sofortige lokale Konsistenz.
+    // MARK: - Rezept-CRUD
+
+    /// Legt ein neues Rezept an oder aktualisiert ein bestehendes.
+    /// `editing` nil → neues Rezept; non-nil → Aktualisierung des übergebenen Objekts.
+    func saveRecipe(title: String, ingredients: String, instructions: String,
+                    imageData: Data?, editing existing: Recipe? = nil) {
+        let ctx = container.viewContext
+        let recipe: Recipe
+        if let existing {
+            recipe = existing
+        } else {
+            recipe = Recipe(context: ctx)
+            recipe.id = UUID()
+            recipe.createdAt = Date()
+        }
+        recipe.title = title
+        recipe.ingredients = ingredients
+        recipe.instructions = instructions
+        recipe.imageData = imageData
+        persist()
+    }
+
+    func deleteRecipe(_ recipe: Recipe) {
+        container.viewContext.delete(recipe)
+        persist()
+    }
+
+    // MARK: - Persistenz
+
     private func persist() {
         guard container.viewContext.hasChanges else { return }
         do {
@@ -222,14 +247,6 @@ final class MealStore: ObservableObject {
 
     // MARK: - Sharing
 
-    /// Bereitet einen CKShare für die Sharing-UI vor.
-    ///
-    /// Existiert bereits ein Share, wird `minimumAppVersion` gelöscht, damit
-    /// TestFlight-Empfänger nicht durch einen App-Store-Versions-Check blockiert werden,
-    /// und der bestehende Share wird zurückgegeben.
-    ///
-    /// Existiert noch kein Share, werden alle Mahlzeiten in einen neuen Share gepackt.
-    /// Der Completion-Handler wird immer auf dem Main-Thread aufgerufen.
     func prepareShare(completion: @escaping (CKShare?, CKContainer?, Error?) -> Void) {
         guard let store = privateStore else { completion(nil, nil, nil); return }
         let ckContainer = CKContainer(identifier: "iCloud.eu.barann.speisewagen")
@@ -245,7 +262,6 @@ final class MealStore: ObservableObject {
             return
         }
 
-        // Ohne mindestens einen Datensatz kann kein Share angelegt werden.
         guard !meals.isEmpty else {
             completion(nil, nil, NSError(
                 domain: "MealStore", code: 1,
@@ -261,8 +277,6 @@ final class MealStore: ObservableObject {
         }
     }
 
-    /// Nimmt eine geteilte iCloud-Einladung an und importiert die Daten in den shared Store.
-    /// Wird vom AppDelegate aufgerufen, wenn der Benutzer einen Share-Link öffnet.
     func acceptShare(metadata: CKShare.Metadata) {
         guard let sharedStore else {
             print("⚠️ acceptShare aufgerufen, bevor der shared Store bereit war")
@@ -270,7 +284,6 @@ final class MealStore: ObservableObject {
         }
         container.acceptShareInvitations(from: [metadata], into: sharedStore) { [weak self] _, error in
             if let error { print("⚠️ acceptShare-Fehler: \(error)") }
-            // Auf Main-Thread wechseln, da fetch() @Published-Properties ändert.
             DispatchQueue.main.async { self?.fetch() }
         }
     }
